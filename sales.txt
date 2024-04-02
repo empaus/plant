@@ -1,0 +1,9 @@
+	1	  2	    3
+123456789012345678901234567890
+young   m22969	    east	   sm
+stride     f27253	    east	   sm
+topin	east    86432m33	    c
+greco    m18523	    west	   sm
+thaiman   south  94320f25	    c
+moore   m25718	   south	   sm
+wilson      north  97214m45	    c
