@@ -1,0 +1,18 @@
+DATA person;
+  INPUT name $ dept $ salary age;
+CARDS;
+김철수 stat  96 38
+최민지 math  89 42
+이영희 econ  98 55
+오인수 stat  102 39
+;
+RUN;
+PROC PRINT;
+RUN;
+
+DATA person1;
+  SET person;
+  IF dept='math' OR dept='econ' THEN/*THEN을 쓸 경우와 안 쓸 경우의 결과값을 각각 서술하시오*/;
+RUN;
+PROC PRINT:
+RUN;
