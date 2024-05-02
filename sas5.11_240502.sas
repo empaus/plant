@@ -1,0 +1,16 @@
+DATA tscore;
+	INPUT name $ math stat eng kor art;
+	ARRAY tscore [5] math stat eng kor art;
+	DO i=1 TO 5;
+		IF tscore(i)=9 THEN tscore(i)=.;
+	END
+;
+CARDS;
+±èÃ¶¼ö 5 5 1 2 1
+ÃÖ¹ÎÁö 9 3 1 4 5
+ÀÌ¿µÈñ 1 5 3 2 9
+¿ÀÀÎ¼ö 4 1 2 4 9
+;
+RUN;
+PROC PRINT;
+RUN;
