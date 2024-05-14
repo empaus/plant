@@ -1,0 +1,17 @@
+DATA exam_n;
+	INPUT id $ name $ mid final;
+CARDS;
+001 김철수 10 40
+002 이영희 15 10
+001 강민호 50 15
+001 박지수 20 . 
+;
+RUN;
+
+DATA exam_1;
+	SET exam;
+	average=(mid+final)/2;
+	IF id='001';
+RUN;
+PROC PRINT;
+RUN;
