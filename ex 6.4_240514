@@ -1,0 +1,22 @@
+DATA male;
+	INPUT name $ sex $ mid final pre;
+CARDS;
+김철수 M 10 40 30
+강민호 M 50 15 45
+;
+RUN;
+
+DATA female;
+	INPUT name $ sex $ mid final;
+CARDS;
+이영희 F 15 10
+박지수 F 20  .
+;
+RUN;
+
+DATA concat
+	set male female;
+	IF final=. THEN final=mid;
+RUN;
+PROC PRINT;
+RUN;
