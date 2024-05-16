@@ -1,0 +1,37 @@
+DATA mid;
+	INPUT name $ sex $ pre mid;
+CARDS;
+김철수 M 30 10
+강민호 M 45 50
+이영희 F .  15
+박지수 F .  20
+최병호 F .  8
+;
+RUN;
+
+DATA final;
+	INPUT name $ sex $ pre final;
+CARDS;
+이영희 F 32 10
+김철수 M .  40
+박지수 F 15 20
+강민호 M .  15
+;
+RUN; 
+
+PROC SORT DATA=mid;
+	BY name;
+RUN;
+PROC SORT DATA=final;
+	BY name;
+RUN;
+DATA all3;
+	MERGE mid final;
+	BY name;
+	RENAME mid=m_score fina=f_score;
+	DROP sex pre;
+RUN;
+
+PROC PRINT DATA=all(FIRSTOBS=2 OBS=3);
+TITLE '2-nd and 3-rd Observation';
+RUN;
