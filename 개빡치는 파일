@@ -1,0 +1,88 @@
+libname weather "C:\Users\mycom\Desktop\weather";
+
+%let filepath = C:\Users\mycom\Desktop\24yonsei\asos_data_2.csv;
+filename csvfile "&filepath";
+proc import datafile=csvfile
+    out=weather.test
+    dbms=csv
+    replace;
+    getnames=yes;
+run;
+filename csvfile clear;
+proc print data=weather.test;
+run;
+
+
+%let filepath = C:\Users\mycom\Desktop\24yonsei\perceivedtemp_2.csv;
+filename csvfile "&filepath";
+proc import datafile=csvfile
+    out=weather.perceivedtemp
+    dbms=csv
+    replace;
+    getnames=yes;
+run;
+filename csvfile clear;
+proc print data=weather.perceivedtemp;
+run;
+
+proc means data=weather.perceivedtemp noprint;
+    format date monyy7.;
+    class date;
+    var temp relhud per_temp;
+    output out=monthly_summary mean=;
+run;
+
+data monthly_summary_rounded;
+    set monthly_summary;
+	if _N_ ne 1;
+    temp = round(temp, 0.01);
+    relhud = round(relhud, 0.01);
+    per_temp = round(per_temp, 0.01);
+run;
+
+/* 결과 출력 */
+proc print data=monthly_summary_rounded;
+    title 'Monthly Average Summary (Rounded to Two Decimal Places)';
+run;
+
+data monthly_pertemp;
+	set monthly_summary_rounded;
+	DROP _TYPE_ _FREQ_ temp relhud;
+run;
+
+
+DATA test_date;
+    set weather.test;
+    md_date=put(date, MONYY7.);
+run;
+proc print;
+run;
+
+DATA test_data_final;
+	retain md_date date meantem meanhighesttem meanlowesttem highesttem lowesttem hPa ave_waterpress hi_waterpress low_waterpress ave_dewpointtem ave_relhud low_relhud sumrainfall sum_sunhour sol_radiation sum_sol_ratdiation ave_groundtem day_temrange ;
+	set test_date;
+	drop date;
+run;
+proc print;
+run;
+	
+data per_tem_data;
+	rename date=md_date;
+	set monthly_summary_rounded;
+run;
+proc print;
+run;
+
+proc sort data=test_data_final;
+	by md_date;
+run;
+
+proc sort data=per_tem_data;
+	by md_date;
+run;
+
+data plus;
+    merge test_data_final(in=a) per_tem_data;
+    by md_date;
+    if a;
+run;
