@@ -1,0 +1,47 @@
+libname M "C:\Users\mycom\Desktop\mining";
+
+%let filepath = C:\Users\mycom\Desktop\24yonsei\air_pol2.csv;
+filename csvfile "&filepath";
+proc import datafile=csvfile
+    out=M.test
+    dbms=csv
+    replace;
+    getnames=yes;
+run;
+filename csvfile clear;
+proc print data=M.test;
+run;
+
+DATA try1;
+	set M.test;
+	IF date=202405 then delete;
+	IF date=202404 then delete;
+	IF date=202403 then delete;
+	IF date=202402 then delete;
+	IF date=202401 then delete;
+RUN;
+PROC PRINT;
+RUN;
+
+proc sql;
+    create table monthly_averages as
+    select date,
+           mean(NO2) as av_NO2,
+		   mean(O3) as av_O3,
+           mean(CO) as av_CO,
+           mean(PM10) as av_PM10,
+		   mean(PM2_5) as av_PM2_5
+    from try1
+    group by date;
+proc print;
+run;
+
+proc print data = monthly_averages;
+run;
+
+data new;
+	set monthly_averages;
+	IF date<=200112 then delete;
+run;
+proc print;
+run;
