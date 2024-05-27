@@ -1,0 +1,267 @@
+libname A "C:\Users\mycom\Desktop\edu_sample\교육용(SAS)";
+libname T "C:\Users\mycom\Desktop\table";
+
+
+DATA T.analize_data;
+SET A.anal_data;
+RUN;
+
+/* 전처리 후 분석*/
+proc freq data=T.analize_data;
+    tables SICK_SYM2;
+RUN;
+/*질병 O와 X는 7:3비율 정도 됨.*/
+
+/*질병 유무에 따른 기초통계량*/
+%macro frequency(sick, variable);
+proc sort data=T.analize_data;
+    by &sick; 
+run;
+
+proc freq data=T.analize_data ;
+   BY &sick;
+    tables &variable;
+RUN; 
+%mend;
+%frequency(SICK_DM,SEX AGE1 SICK_SYM2 REGION INCOME DRINK BMI bloodsugar smoking Q_PA TOT_CHOL 
+Q_FHX_HTN Q_FHX_DM);
+%frequency(SICK_HTN,SEX AGE1 SICK_SYM2 REGION INCOME DRINK BMI bloodsugar smoking Q_PA TOT_CHOL 
+Q_FHX_HTN Q_FHX_DM);
+%frequency(SICK_HLD,SEX AGE1 SICK_SYM2 REGION INCOME DRINK BMI bloodsugar smoking Q_PA TOT_CHOL 
+Q_FHX_HTN Q_FHX_DM);
+%frequency(SICK_OX,SEX AGE1 SICK_SYM2 REGION INCOME DRINK BMI bloodsugar smoking Q_PA TOT_CHOL 
+Q_FHX_HTN Q_FHX_DM );
+
+/*ttest*/
+/*ttest는 원데이터로 봐야할 것 같음 연속형이기 때문.*/
+/*%macro ttest(sick,variable);*/
+/*proc ttest data=T.ANAL_DATA;*/
+/*class &sick;*/
+/*var &variable;*/
+/*run;*/
+/*%mend;*/
+/*%ttest(SICK_DM, variable);*/
+
+/*카이제곱 검정*/
+%macro chi(sick,variable);
+proc freq data=T.analize_data;
+table (&variable)*&sick/chisq nocol nopercent;
+run;
+%mend;
+%chi(sick_dm, SEX AGE1 SICK_SYM2 REGION INCOME DRINK BMI bloodsugar smoking Q_PA TOT_CHOL 
+Q_FHX_HTN Q_FHX_DM );
+%chi(sick_htn, SEX AGE1 SICK_SYM2 REGION INCOME DRINK BMI bloodsugar smoking Q_PA TOT_CHOL 
+Q_FHX_HTN Q_FHX_DM );
+%chi(sick_hld, SEX AGE1 SICK_SYM2 REGION INCOME DRINK BMI bloodsugar smoking Q_PA TOT_CHOL 
+Q_FHX_HTN Q_FHX_DM );
+%chi(sick_OX, SEX AGE1 SICK_SYM2 REGION INCOME DRINK BMI bloodsugar smoking Q_PA TOT_CHOL 
+Q_FHX_HTN Q_FHX_DM );
+
+/*단순 로지스틱 회귀분석*/
+/*%macro logistic(var,standard,sick, sick_index);*/
+/*proc logistic data=T.ANAL_DATA;*/
+/*   class &var(ref=&standard);*/
+/*    model &sick(event=&sick_index)= &var;*/
+/*run;*/
+/*%mend;*/
+/*당뇨*/
+%macro logistic(var,standard);
+proc logistic data=T.analize_data;
+   class &var(ref=&standard);
+    model sick_dm(event="당뇨")= &var;
+run;
+%mend logistic;
+%logistic(BMI, '정상' );
+%logistic(INCOME,"중");
+
+%macro logistic(var,standard);
+proc logistic data=T.analize_data;
+   class &var(ref=&standard);
+    model sick_htn(event="고혈압")= &var;
+run;
+%mend;
+
+
+
+/*다중 로지스틱 회귀분석*/
+%macro multi_log(sick,sick_index);
+proc logistic data=T.analize_data;
+class sex(ref='1') REGION(ref='서울') AGE1(ref='청년층') BMI(ref='정상') TOT_CHOL(ref='1') Q_FHX_HTN(ref='1') Q_FHX_DM(ref='1')
+         DRINK(ref='0') smoking(ref='1') Q_PA(ref='1') INCOME(ref='중') BLOODSUGAR(ref="1(good)");
+model &sick(event=&sick_index) = sex REGION AGE1 BMI TOT_CHOL Q_FHX_HTN Q_FHX_DM DRINK smoking Q_PA INCOME BLOODSUGAR;
+run;
+%mend multi_log;
+
+%multi_log(sick_dm, "당뇨");
+%multi(sick_htn, "고혈압");
+%multi(sick_OX, "1");
+
+%MACRO MULTI_LOG(sick,sick_index);
+proc logistic data=T.analize_data;
+class sex(ref='1') REGION(ref='서울') AGE1(ref='청년층') BMI(ref='정상') TOT_CHOL(ref='1') Q_FHX_HTN(ref='1') Q_FHX_DM(ref='1') 
+         DRINK(ref='0') smoking(ref='1') Q_PA(ref='1') INCOME(ref='중') BLOODSUGAR(ref="1(good)");
+model &SICK(event=&sick_index) = sex REGION AGE1 BMI TOT_CHOL Q_FHX_HTN Q_FHX_DM DRINK smoking Q_PA INCOME BLOODSUGAR/
+SELECTION=FORWARD
+CTABLE PPROB = (0 TO 1 BY .1)
+LACKFIT
+RISKLIMITS;
+ROC;
+run;
+%MEND;
+
+%MULTI_LOG(SICK_OX, "1");
+%MULTI_LOG(SICK_DM,"당뇨");
+%MULTI_LOG(SICK_HTN,"고혈압");
+%MULTI_LOG(SICK_HLD,"고지혈증");
+
+/*마지막 주*/
+%MACRO MULTI_LOG(DATA, SICK, SICK_INDEX);
+proc logistic data=T.&DATA;
+class sex(ref='1') REGION(ref='서울') AGE1(ref='청년층') BMI(ref='정상') TOT_CHOL(ref='1') Q_FHX_HTN(ref='1') Q_FHX_DM(ref='1') 
+         DRINK(ref='0') smoking(ref='1') Q_PA(ref='1') INCOME(ref='중') BLOODSUGAR(ref="1(good)");
+model &SICK(event=&sick_index) = sex REGION AGE1 BMI TOT_CHOL Q_FHX_HTN Q_FHX_DM DRINK smoking Q_PA INCOME BLOODSUGAR/
+SELECTION=FORWARD
+CTABLE PPROB = (0 TO 1 BY .1)
+LACKFIT
+RISKLIMITS;
+ROC;
+run;
+%MEND;
+
+%MULTI_LOG(analize_data,SICK_OX, "1");
+%MULTI_LOG(analize_data, SICK_DM,"당뇨");
+%MULTI_LOG(analize_data, SICK_HTN,"고혈압");
+%MULTI_LOG(analize_data, SICK_HLD,"고지혈증");
+
+/*오버샘플링*/
+%MACRO OVER_DM(SICK, SICK_INDEX);
+PROC SQL;
+CREATE TABLE T.OVER_DM AS
+SELECT * FROM T.analize_data
+UNION ALL
+SELECT * FROM T.analize_data WHERE &SICK = &SICK_INDEX UNION ALL
+SELECT * FROM T.analize_data WHERE &SICK = &SICK_INDEX UNION ALL
+SELECT * FROM T.analize_data WHERE &SICK = &SICK_INDEX UNION ALL
+SELECT * FROM T.analize_data WHERE &SICK = &SICK_INDEX UNION ALL
+SELECT * FROM T.analize_data WHERE &SICK = &SICK_INDEX UNION ALL
+SELECT * FROM T.analize_data WHERE &SICK = &SICK_INDEX UNION ALL
+SELECT * FROM T.analize_data WHERE &SICK = &SICK_INDEX UNION ALL
+SELECT * FROM T.analize_data WHERE &SICK = &SICK_INDEX UNION ALL
+SELECT * FROM T.analize_data WHERE &SICK = &SICK_INDEX UNION ALL
+SELECT * FROM T.analize_data WHERE &SICK = &SICK_INDEX UNION ALL
+SELECT * FROM T.analize_data WHERE &SICK = &SICK_INDEX UNION ALL
+SELECT * FROM T.analize_data WHERE &SICK = &SICK_INDEX UNION ALL
+SELECT * FROM T.analize_data WHERE &SICK = &SICK_INDEX UNION ALL
+SELECT * FROM T.analize_data WHERE &SICK = &SICK_INDEX;
+QUIT;
+%MEND;
+%OVER_DM( SICK_DM,"당뇨");
+%MULTI_LOG(OVER_DM, SICK_DM,"당뇨");
+
+%MACRO OVER_HTN(SICK, SICK_INDEX);
+PROC SQL;
+CREATE TABLE T.OVER_HTN AS
+SELECT * FROM T.analize_data
+UNION ALL
+SELECT * FROM T.analize_data WHERE &SICK = &SICK_INDEX UNION ALL
+SELECT * FROM T.analize_data WHERE &SICK = &SICK_INDEX UNION ALL
+SELECT * FROM T.analize_data WHERE &SICK = &SICK_INDEX;
+QUIT;
+%MEND;
+%OVER_HTN(SICK_HTN,"고혈압");
+%MULTI_LOG(OVER_HTN, SICK_HTN,"고혈압");
+
+%MACRO OVER_HLD(SICK, SICK_INDEX);
+PROC SQL;
+CREATE TABLE T.OVER_HLD AS
+SELECT * FROM T.analize_data
+UNION ALL
+SELECT * FROM T.analize_data WHERE &SICK = &SICK_INDEX UNION ALL
+SELECT * FROM T.analize_data WHERE &SICK = &SICK_INDEX UNION ALL
+SELECT * FROM T.analize_data WHERE &SICK = &SICK_INDEX UNION ALL
+SELECT * FROM T.analize_data WHERE &SICK = &SICK_INDEX UNION ALL
+SELECT * FROM T.analize_data WHERE &SICK = &SICK_INDEX UNION ALL
+SELECT * FROM T.analize_data WHERE &SICK = &SICK_INDEX UNION ALL
+SELECT * FROM T.analize_data WHERE &SICK = &SICK_INDEX UNION ALL
+SELECT * FROM T.analize_data WHERE &SICK = &SICK_INDEX UNION ALL
+SELECT * FROM T.analize_data WHERE &SICK = &SICK_INDEX UNION ALL
+SELECT * FROM T.analize_data WHERE &SICK = &SICK_INDEX UNION ALL
+SELECT * FROM T.analize_data WHERE &SICK = &SICK_INDEX UNION ALL
+SELECT * FROM T.analize_data WHERE &SICK = &SICK_INDEX UNION ALL
+SELECT * FROM T.analize_data WHERE &SICK = &SICK_INDEX UNION ALL
+SELECT * FROM T.analize_data WHERE &SICK = &SICK_INDEX UNION ALL
+SELECT * FROM T.analize_data WHERE &SICK = &SICK_INDEX UNION ALL
+SELECT * FROM T.analize_data WHERE &SICK = &SICK_INDEX UNION ALL
+SELECT * FROM T.analize_data WHERE &SICK = &SICK_INDEX UNION ALL
+SELECT * FROM T.analize_data WHERE &SICK = &SICK_INDEX UNION ALL
+SELECT * FROM T.analize_data WHERE &SICK = &SICK_INDEX UNION ALL
+SELECT * FROM T.analize_data WHERE &SICK = &SICK_INDEX UNION ALL
+SELECT * FROM T.analize_data WHERE &SICK = &SICK_INDEX UNION ALL
+SELECT * FROM T.analize_data WHERE &SICK = &SICK_INDEX;
+QUIT;
+%MEND;
+%OVER_HLD (SICK_HLD, "고지혈증");
+%MULTI_LOG(OVER_HLD, SICK_HLD,"고지혈증");
+
+%MACRO OVER_SAMPLING(SICK, SICK_INDEX);
+PROC SQL;
+CREATE TABLE T.OVER_SAMPLING AS
+SELECT * FROM T.analize_data
+UNION ALL
+SELECT * FROM T.analize_data WHERE &SICK = &SICK_INDEX UNION ALL
+SELECT * FROM T.analize_data WHERE &SICK = &SICK_INDEX;
+QUIT;
+%MEND;
+%OVER_SAMPLING(SICK_OX,1);
+%MULTI_LOG(OVER_SAMPLING,SICK_OX, "1");
+
+/* PROC HPSPLIT을 사용하여 의사결정나무 모델링1 */
+proc hpsplit data=T.OVER_DM;
+   partition fraction(validate=0.3);
+   target SICK_DM;
+   input sex REGION AGE1 BMI TOT_CHOL Q_FHX_HTN Q_FHX_DM DRINK smoking Q_PA INCOME BLOODSUGAR;
+run;
+
+proc hpsplit data=T.OVER_DM;
+   partition fraction(validate=0.3);
+   target SICK_DM;
+   input sex REGION AGE1 BMI TOT_CHOL Q_FHX_HTN Q_FHX_DM DRINK smoking Q_PA INCOME BLOODSUGAR;
+   prune costcomplexity; /* 비용 복잡도 기반 가지치기 */
+   code file='tree_code.sas'; /* 모델 코드 생성 */
+   rules file='tree_rules.txt'; /* 규칙을 파일로 저장 */
+run;
+
+proc hpsplit data=T.OVER_DM;
+    partition fraction(validate=0.3);
+    target SICK_DM;
+    input sex REGION AGE1 BMI TOT_CHOL Q_FHX_HTN Q_FHX_DM DRINK smoking Q_PA INCOME BLOODSUGAR;
+    ods output Splits=SplitOutput;
+run;
+
+proc print data=SplitOutput;
+run;
+
+proc logistic data=T.analize_data;
+   class sex REGION AGE1 REGION INCOME DRINK bloodsugar smoking Q_PA TOT_CHOL Q_FHX_HTN Q_FHX_DM;
+   model SICK_DM = sex REGION AGE1 REGION INCOME DRINK bloodsugar smoking Q_PA TOT_CHOL Q_FHX_HTN Q_FHX_DM ;
+run;
+
+
+/* PROC LOGISTIC을 사용하여 로지스틱 회귀 모델을 적합합니다. */
+proc logistic data=T.analize_data;
+   class sex REGION AGE1 REGION INCOME DRINK bloodsugar smoking Q_PA TOT_CHOL Q_FHX_HTN Q_FHX_DM;
+   model SICK_DM(event='1') = sex REGION AGE1 REGION INCOME DRINK bloodsugar smoking Q_PA TOT_CHOL Q_FHX_HTN Q_FHX_DM / ROCDATA = out_roc;
+run;
+
+/* PROC LOGISTIC으로 생성된 ROC 데이터 세트에서 민감도와 특이도를 계산합니다. */
+data roc_metrics;
+   set out_roc;
+   Sensitivity = Sensitivity1;
+   Specificity = 1 - Specificity1;
+run;
+
+/* 계산된 민감도와 특이도를 VIEWTABLE로 출력합니다. */
+proc print data=roc_metrics;
+   var Sensitivity Specificity;
+run;
+
