@@ -12,8 +12,9 @@ filename csvfile clear;
 proc print data=M.summary;
 run;
 
+/* 종속변수만 정규화 */
 proc standard data=M.summary mean=0 std=1 out=M.summary_std;
-    var foodpa rhinitispa atopypa; /* 종속변수만 정규화 */
+    var rhinitispa atopypa; 
 run;
 proc print;
 run;
