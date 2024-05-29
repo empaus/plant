@@ -1,0 +1,174 @@
+libname M "C:\Users\mycom\Desktop\mining";
+
+%let filepath = C:\Users\mycom\Desktop\24yonsei\summary.csv;
+filename csvfile "&filepath";
+proc import datafile=csvfile
+    out=M.summary
+    dbms=csv
+    replace;
+    getnames=yes;
+run;
+filename csvfile clear;
+proc print data=M.summary;
+run;
+
+proc standard data=M.summary mean=0 std=1 out=M.summary_std;
+    var foodpa rhinitispa atopypa; /* 종속변수만 정규화 */
+run;
+proc print;
+run;
+
+proc standard data=M.summary mean=0 std=1 out=M.summary_both;
+    var foodpa rhinitispa atopypa meantem meanhighesttem meanlowesttem hPa ave_waterpress ave_dewpointtem ave_relhud low_relhud sumrainfall ave_windspeed max_windspeed sum_sunhour sol_radiation sum_sol_radiation ave_groundtem av_NO2 av_O3 av_CO av_PM10;
+run;
+proc print;
+run;
+
+
+proc corr data=M.summary_std;
+    var meantem meanhighesttem meanlowesttem hPa ave_waterpress ave_dewpointtem ave_relhud low_relhud sumrainfall ave_windspeed max_windspeed sum_sunhour sol_radiation sum_sol_radiation ave_groundtem av_NO2 av_O3 av_CO av_PM10 ; /* 독립 변수 */
+    with rhinitispa atopypa foodpa; /* 종속 변수 */
+run;
+
+
+/*계절성에 따른 분포로 나누기*/
+DATA atopypa_season;
+    SET M.summary_std; 
+    
+
+    month = MOD(date, 100);
+
+    IF 3 <= month <= 5 THEN season = 'Spring';
+    ELSE IF 6 <= month <= 8 THEN season = 'Summer';
+    ELSE IF 9 <= month <= 11 THEN season = 'Fall';
+    ELSE IF month = 12 OR month = 1 OR month = 2 THEN season = 'Winter';
+    
+    DROP month; 
+RUN;
+proc print;
+run;
+
+proc sort data=atopypa_season;
+   by season;
+run;
+
+/*계절에 따른 아토피 외래환자 분포 boxplot*/
+proc sgplot data=atopypa_season;
+   vbox atopypa / category=season;
+   xaxis label='Season';
+   yaxis label='Atopy Score';
+run;
+
+
+proc sql;
+    select median(atopypa) into :summer_median
+    from atopypa_season
+    where season = 'Summer';
+quit;
+
+/* 2. 중간값을 기준으로 이진 변수 생성 */
+data atopypa_season;
+    set atopypa_season;
+    if atopypa >= &summer_median then atopypa_1 = 1;
+    else atopypa_1 = 0;
+run;
+
+
+%put Summer Median Atopy Score = &summer_median;
+
+/* 3. 새로운 이진 변수 확인 */
+proc print data=atopypa_season;
+    var atopypa season atopypa_1;
+run;
+
+/*stepwise도 돌려봤는데 전진선택법이랑 별 차이 없음*/
+proc logistic data=atopypa_season;
+    class season (ref='Summer');
+    model atopypa_1(event='1') = meantem meanhighesttem meanlowesttem hPa ave_waterpress
+        ave_dewpointtem ave_relhud low_relhud sumrainfall ave_windspeed max_windspeed
+        sum_sunhour sol_radiation sum_sol_radiation ave_groundtem av_NO2 av_O3 av_CO av_PM10 /
+        selection=forward;
+    roc;
+run;
+
+
+proc logistic data=atopypa_season;
+    class season (ref='Summer');
+    model atopypa_1(event='1') = meantem meanhighesttem meanlowesttem hPa ave_waterpress
+        ave_dewpointtem ave_relhud low_relhud sumrainfall ave_windspeed max_windspeed
+        sum_sunhour sol_radiation sum_sol_radiation ave_groundtem av_NO2 av_O3 av_CO av_PM10 /
+SELECTION=FORWARD
+CTABLE PPROB = (0 TO 1 BY .1)
+LACKFIT
+RISKLIMITS;
+ROC;
+run;
+
+proc hpsplit data=atopypa_season;
+   partition fraction(validate=0.3);
+   target atopypa_1;
+   input meantem meanhighesttem meanlowesttem hPa ave_waterpress
+        ave_dewpointtem ave_relhud low_relhud sumrainfall ave_windspeed max_windspeed
+        sum_sunhour sol_radiation sum_sol_radiation ave_groundtem av_NO2 av_O3 av_CO av_PM10 ;
+run;
+
+
+DATA rhinitispa_season;
+	SET atopypa_season;
+RUN;
+
+/*계절에 따른 비염 외래환자 분포 boxplot*/
+proc sgplot data=rhinitispa_season;
+   vbox rhinitispa / category=season;
+   xaxis label='Season';
+   yaxis label='rhinitis Score';
+run;
+
+proc sql;
+    select mean(rhinitispa) into :fall_mean
+    from atopypa_season
+    where season = 'Fall';
+quit;
+
+/* 2. 가을 평균을 기준으로 이진 변수 생성 */
+data rhinitis_season;
+    set rhinitispa_season;
+    if rhinitispa >= &fall_mean then rhinitis_1 = 1;
+    else rhinitis_1 = 0;
+run;
+
+/* 3. 새로운 이진 변수 확인 */
+proc print data=rhinitis_season;
+    var rhinitispa season rhinitis_1;
+run;
+
+/*stepwise도 돌려봤는데 전진선택법이랑 별 차이 없음*/
+proc logistic data=rhinitis_season;
+    class season (ref='Fall');
+    model rhinitis_1(event='1') = meantem meanhighesttem meanlowesttem hPa ave_waterpress
+        ave_dewpointtem ave_relhud low_relhud sumrainfall ave_windspeed max_windspeed
+        sum_sunhour sol_radiation sum_sol_radiation ave_groundtem av_NO2 av_O3 av_CO av_PM10 /
+        selection=forward;
+    roc;
+run;
+
+
+proc logistic data=rhinitis_season;
+    class season (ref='Fall');
+    model rhinitis_1(event='1') = meantem meanhighesttem meanlowesttem hPa ave_waterpress
+        ave_dewpointtem ave_relhud low_relhud sumrainfall ave_windspeed max_windspeed
+        sum_sunhour sol_radiation sum_sol_radiation ave_groundtem av_NO2 av_O3 av_CO av_PM10 /
+SELECTION=FORWARD
+CTABLE PPROB = (0 TO 1 BY .1)
+LACKFIT
+RISKLIMITS;
+ROC;
+run;
+
+proc hpsplit data=rhinitis_season;
+   partition fraction(validate=0.3);
+   target rhinitis_1;
+   input meantem meanhighesttem meanlowesttem hPa ave_waterpress
+        ave_dewpointtem ave_relhud low_relhud sumrainfall ave_windspeed max_windspeed
+        sum_sunhour sol_radiation sum_sol_radiation ave_groundtem av_NO2 av_O3 av_CO av_PM10 ;
+run;
