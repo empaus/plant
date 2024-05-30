@@ -1,0 +1,31 @@
+DATA htwt;
+	INPUT name $ gender $dept $ age height weight;
+	LABEL name='이름' gender='성별' dept='학과' age='나이' height='키' weight='몸무게';
+CARDS;
+김철수 M Stat 25 170 67
+강민호 M Stat 20 169 70
+이영희 F Math 19 160 58
+박지수 F Econ 21 160 59
+최병호 M Math 28 177 62
+장순미 F Stat 22 173 60 
+이상호 M Econ 19 170 71
+김미숙 F Math 16 150 48
+박흥식 M Econ 20 165 53
+유은영 F Stat 16 169 57
+;
+RUN;
+
+PROC SORT DATA = htwt;
+	BY gender;
+RUN;
+
+PROC UNIVARIATE DATA = htwt NORMAL PLOTS; /*NORMAL PLOT 은 옵션*/
+	BY gender; /*성별에 대한 분포를 분석*/
+	VAR age height weight; /*3가지 변수에 대해서 분석*/
+	HISTOGRAM age / NORMAL; /* '/NORMAL' 은 정규분포*/
+	PROBPLOT height weight / NORMAL;
+	QQPLOT age / EXPONENTIAL;
+RUN;
+
+
+/*3.3 3.4*/
