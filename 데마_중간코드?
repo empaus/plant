@@ -16,8 +16,6 @@ run;
 proc standard data=M.summary mean=0 std=1 out=M.summary_std;
     var rhinitispa atopypa; 
 run;
-proc print;
-run;
 
 
 /*상관분석*/
@@ -39,7 +37,7 @@ DATA summary_season;
     ELSE IF 9 <= month <= 11 THEN season = 'Fall';
     ELSE IF month = 12 OR month = 1 OR month = 2 THEN season = 'Winter';
 
-    DROP foodpa
+    DROP foodpa;
     DROP month; 
 RUN;
 proc print;
@@ -56,12 +54,21 @@ proc sgplot data=summary_season;
    yaxis label='Atopy Score';
 run;
 
+proc sgplot data=summary_season;
+   histogram atopypa / group=season transparency=0.5;
+   density atopypa / type=normal group=season;
+   xaxis label='Atopy Score';
+   yaxis label='Frequency';
+   keylegend / title='Season';
+run;
 
+/*summer_median 설정*/
 proc sql;
     select median(atopypa) into :summer_median
     from summary_season
     where season = 'Summer';
 quit;
+
 
 /* 1-2. 중간값을 기준으로 이진 변수 생성 */
 data summary_season_atopy;
@@ -109,16 +116,25 @@ proc sgplot data=summary_season;
    yaxis label='rhinitis Score';
 run;
 
+proc sgplot data=summary_season;
+   histogram rhinitispa / group=season transparency=0.5;
+   density rhinitispa / type=normal group=season;
+   xaxis label='Frequency';
+   yaxis label='rhinitis Score';
+   keylegend / title='Season';
+run;
+
 proc sql;
-    select mean(rhinitispa) into :fall_mean
-    from atopypa_season
-    where season = 'Fall';
+    select median(rhinitispa) into :spring_median
+    from summary_season
+    where season = 'Spring';
 quit;
 
-/* 2-2. 가을 평균을 기준으로 이진 변수 생성 */
+
+/* 2-2. 봄 중간값을 기준으로 이진 변수 생성 */
 data summary_season_rhinitis;
     set summary_season;
-    if rhinitispa >= &fall_mean then rhinitis_1 = 1;
+    if rhinitispa >= &spring_mean then rhinitis_1 = 1;
     else rhinitis_1 = 0;
 run;
 
@@ -129,7 +145,7 @@ run;
 
 /* 2-4. 로지스틱 회귀분석, stepwise도 돌려봤는데 전진선택법이랑 별 차이 없음 */
 proc logistic data=summary_season_rhinitis;
-    class season (ref='Fall');
+    class season (ref='Spring');
     model rhinitis_1(event='1') = meantem meanhighesttem meanlowesttem hPa ave_waterpress
         ave_dewpointtem ave_relhud low_relhud sumrainfall ave_windspeed max_windspeed
         sum_sunhour sol_radiation sum_sol_radiation ave_groundtem av_NO2 av_O3 av_CO av_PM10 /
