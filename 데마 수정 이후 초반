@@ -1,0 +1,154 @@
+libname M "C:\Users\mycom\Desktop\mining";
+
+%let filepath = C:\Users\mycom\Desktop\24yonsei\summary_final.csv;
+filename csvfile "&filepath";
+proc import datafile=csvfile
+    out=M.summary
+    dbms=csv
+    replace;
+    getnames=yes;
+run;
+filename csvfile clear;
+proc print data=M.summary;
+run;
+
+
+/*독립변수만 정규화*/
+proc standard data=M.summary mean=0 std=1 out=M.summary_std;
+    var meantem meanhighesttem meanlowesttem hPa ave_waterpress ave_dewpointtem ave_relhud low_relhud sumrainfall ave_windspeed max_windspeed sum_sunhour sol_radiation sum_sol_radiation ave_groundtem av_NO2 av_O3 av_CO av_PM10; 
+run;
+proc print;
+run;
+
+/*계절별로 나누기*/
+DATA summary_season;
+    SET M.summary_std; 
+    
+
+    month = MOD(date, 100);
+
+    IF 3 <= month <= 5 THEN season = 'Spring';
+    ELSE IF 6 <= month <= 8 THEN season = 'Summer';
+    ELSE IF 9 <= month <= 11 THEN season = 'Fall';
+    ELSE IF month = 12 OR month = 1 OR month = 2 THEN season = 'Winter';
+
+    DROP month; 
+RUN;
+
+
+proc sort data=summary_season;
+   by season;
+run;
+
+DATA summary_spring summary_summer summary_fall summary_winter;
+    SET summary_season;
+    BY season;
+
+    IF season = 'Spring' THEN OUTPUT summary_spring;
+    ELSE IF season = 'Summer' THEN OUTPUT summary_summer;
+    ELSE IF season = 'Fall' THEN OUTPUT summary_fall;
+    ELSE IF season = 'Winter' THEN OUTPUT summary_winter;
+RUN;
+
+/* 분할된 데이터셋 확인 */
+proc print data=summary_spring;
+run;
+
+
+/* summary_spring 데이터에서 atopypa의 평균을 계산 */
+/* 이진변수 생성 */
+proc sql;
+    select mean(atopypa) into :spring_mean
+    from summary_season
+    where season = 'Spring';
+quit;
+data summary_spring_bi;
+    set summary_season;
+    if season = 'Spring' then do;
+        if atopypa >= &spring_mean then atopypa_1 = 1;
+        else atopypa_1 = 0;
+        output;
+    end;
+run;
+
+
+proc sql;
+    select mean(atopypa) into :summer_mean
+    from summary_season
+    where season = 'Summer';
+quit;
+data summary_summer_bi;
+    set summary_season;
+    if season = 'Summer' then do;
+        if atopypa >= &summer_mean then atopypa_1 = 1;
+        else atopypa_1 = 0;
+        output;
+    end;
+run;
+
+
+proc sql;
+    select mean(atopypa) into :fall_mean
+    from summary_season
+    where season = 'Fall';
+quit;
+data summary_fall_bi;
+    set summary_season;
+    if season = 'Fall' then do;
+        if atopypa >= &fall_mean then atopypa_1 = 1;
+        else atopypa_1 = 0;
+        output;
+    end;
+run;
+
+
+proc sql;
+    select mean(atopypa) into :winter_mean
+    from summary_season
+    where season = 'Winter';
+quit;
+data summary_winter_bi;
+    set summary_season;
+    if season = 'Winter' then do;
+        if atopypa >= &winter_mean then atopypa_1 = 1;
+        else atopypa_1 = 0;
+        output;
+    end;
+run;
+
+
+/* 계절별 데이터셋을 하나로 합침; summary_middle */
+data summary_middle;
+    set summary_Spring_bi
+        summary_Summer_bi
+        summary_Fall_bi
+        summary_Winter_bi;
+run;
+
+/* 결과 확인을 위해 출력 */
+proc print data=summary_middle;
+run;
+
+
+/*로지스틱 회귀분석_아토피*/
+proc logistic data=summary_middle;
+    class season;
+    model atopypa_1(event='1') = meantem meanhighesttem meanlowesttem hPa ave_waterpress
+        ave_dewpointtem ave_relhud low_relhud sumrainfall ave_windspeed max_windspeed
+        sum_sunhour sol_radiation sum_sol_radiation ave_groundtem av_NO2 av_O3 av_CO av_PM10 /
+SELECTION=FORWARD
+CTABLE PPROB = (0 TO 1 BY .1)
+LACKFIT
+RISKLIMITS;
+ROC;
+run;
+/*의사결정나무_아토피*/
+proc hpsplit data=summary_season_atopy;
+   partition fraction(validate=0.3);
+   target atopypa_1;
+   input meantem meanhighesttem meanlowesttem hPa ave_waterpress
+        ave_dewpointtem ave_relhud low_relhud sumrainfall ave_windspeed max_windspeed
+        sum_sunhour sol_radiation sum_sol_radiation ave_groundtem av_NO2 av_O3 av_CO av_PM10 ;
+	prune costcomplexity;
+    code file='decision_tree_score.sas';
+run;
