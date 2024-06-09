@@ -1,0 +1,302 @@
+DATA exam;
+	INPUT id $ name $ mid final;
+CARDS;
+001 김철수 10 40
+002 이영희 15 10
+001 강민호 50 15
+001 박지수 20   .
+;
+RUN;
+
+/*
+SET 명령문 1. 이미 존재하는 데이터셋을 새로운 데이터셋의 값으로 지정할 때 사용.
+				  2. 2개 이상의 데이터셋을 세로 결합할 때 사용(concatenating).
+						ㄴ부족한 변수는 결측값 처리
+						ㄴ개체가 세로 방향으로 계속적으로 추가
+*/
+DATA exam_n;
+	SET exam(IF id='001');
+	average=(mid+final)/2;
+RUN;
+PROC PRINT;
+RUN;
+
+
+DATA male;
+	INPUT name $ sex $ mid final pre;
+CARDS;
+김철수 M 10 40 30
+강민호 M 50 15 45
+;
+RUN;
+DATA female;
+	INPUT name $ sex $ mid final;
+CARDS;
+이영희 F 15 10
+박지수 F 20  .  
+;
+RUN;
+
+DATA concat;
+	SET male female;
+	IF final=. THEN final=mid;
+RUN;
+PROC PRINT;
+RUN;
+
+/*
+MERGE 명령문 
+	-여러 개의 데이터 셋을 동시지정하면 데이터셋들을 가로로 결합하여 새로운 데이터셋 생성
+	-by문으로 대응 가로결합 할 시, 병합하기 전에 PROC SORT DATA 문으로 공통변수에 대해 정렬해야 함.
+	-공통되는 변수에 대해서는, 뒤에 오는 데이터셋이 앞에 지정된 데이터셋에 덮어쓰기 됨.
+*/
+
+DATA one;
+	INPUT a b c;
+CARDS;
+11 21 31
+12 22 32
+13 23 33
+14 24 34
+15 25 35
+16 26 36
+;
+RUN;
+DATA two;
+	INPUT c d;
+CARDS;
+41 51
+42 52
+ .  53
+44 54
+;
+RUN;
+
+DATA combine;
+	MERGE one two;
+RUN;
+PROC PRINT;
+RUN;
+
+
+DATA mid;
+	INPUT name $ sex $ pre mid;
+CARDS;
+김철수 M 30 10
+강민호 M 45 50
+이영희 F  .   15
+박지수 F  .   20
+최병호 F  .   8 
+;
+RUN;
+DATA final;
+	INPUT name $ sex $ pre final;
+CARDS;
+이영희 F 32 10
+김철수 M .   40
+박지수 F 15 20
+강민호 M .   15
+;
+RUN;
+PROC SORT DATA = mid;
+	BY name;
+RUN;
+PROC SORT DATA = final;
+	BY name;
+RUN;
+
+DATA all;
+	MERGE mid final;
+	BY name;
+RUN;
+PROC PRINT;
+RUN;
+
+
+/*
+UPDATE 명령문 -transaction dataset에 결측값이 있는 경우, master dataset의 값을 그대로 유지할 필요가 있을 때.
+						-즉, master data에 최신의 정보가 들어있는 transaction data를 적용하여 master data를 갱신할 때.
+						-단, UPDATE 문을 쓰기 전에 기준이 되는 공통변수가 BY문에 의해 미리 정렬되어 있어야 함.
+*/
+
+DATA all1;
+	UPDATE mid final;
+	BY name;
+RUN;
+PROC PRINT;
+RUN;
+
+
+/*
+데이터셋 옵션의 사용
+	-KEEP: 데이터셋에 포함될 변수 지정
+	-DROP: 데이터셋에 포함되지 않을 변수 지정
+	-RENAME: 변수 이름을 a에서 b로 바꿈
+	-FIRSTOBS=n : n번째 줄 개체부터 읽기
+	-OBS=m : m번째 줄 개체까지만 읽기.
+*/
+
+DATA all2;
+	MERGE mid(KEEP=name mid pre OBS=4)
+				final(DROP=sex RENAME=(pre=pre1));
+	BY name;
+RUN;
+PROC PRINT;
+RUN;
+
+DATA all3;
+	MERGE mid final;
+	BY name;
+	RENAME mid=m_score final=f_score;
+	DROP sex pre;
+RUN;
+PROC PRINT;
+RUN;
+PROC PRINT DATA = all3(FIRSTOBS=2 OBS=3);
+TITLE '2-nd and 3-rd Observations';
+RUN;
+
+
+/*
+DO-END 명령문은 반복작업을 계속 수행하게 할 뿐, 반복에서 작업한 내용을 데이터셋에 저장하지는 않음.
+반복작업을 데이터셋에 저장하기 위해서는 OUTPUT문을 삽입해야 함.
+OUTPUT문을 스지 않으면 맨 마지막에 수행된 하나의 개체만 데이터셋에 저장됨.
+
+DO 명령문에는 UNTIL/WHILE 명령어를 사용하여 산술연산식, 또는 비교식에 의해 DO 명령문이 수행될 조건을 지정할 수 있음
+*/
+
+DATA survey;
+	INFILE 'C:\Users\mycom\Desktop\survey.txt';
+DO age=10 TO 50 BY 10;
+	DO sex='Female', 'Male';
+		INPUT size response @@;
+		OUTPUT;
+	END;
+END;
+LABEL age='연령' sex='성별' size='표본수' response='응답수';
+RUN;
+PROC PRINT;
+RUN;
+
+DATA survey1;
+	INFILE 'C:\Users\mycom\Desktop\survey.txt';
+	DO age=10 by 10 UNTIL(age=50); /*DO age=10 by 10 WHILE(age=<50);*/
+		DO sex='Female', 'Male';
+			INPUT size response @@;
+			OUTPUT;
+		END;
+	END;
+	LABEL age='연령' sex='성별' size='표본수' response='응답수';
+RUN;
+PROC PRINT;
+RUN;
+
+/*
+OUTPUT문	1. DO-END 블록 안에 삽입하여 반복작업에서 발생하는 결과 데이터셋에 저장하기.
+					2. 여러개의 데이터셋 동시에 생성하기
+*/
+DATA gender_m gender_f;
+	SET survey;
+	IF sex='Male' THEN OUTPUT gender_m;
+		ELSE OUTPUT gender_f;
+RUN;
+PROC PRINT;
+RUN; 
+
+
+
+
+
+
+
+/*연습문제 6.1*/
+DATA data1;
+	INPUT id $ gender $ height weight year;
+CARDS;
+1 M 172 65 92
+3 M 189 89 97
+5 F 163 47 95
+2 F 167 52 95
+;
+RUN;
+DATA data2;
+	INPUT id $ gender $ height weight year;
+CARDS;
+4 F 160 45 93
+7 M 192 85 91
+6 M 168 57 92
+8 M 183 62 98
+;
+RUN;
+
+DATA total;
+	SET data1 data2;
+RUN;
+PROC SORT DATA = total;
+	BY id;
+RUN;
+PROC PRINT;
+RUN;
+
+DATA male;
+	SET total;
+	IF gender='M';
+RUN;
+PROC PRINT;
+RUN;
+
+/*연습문제 6.2*/
+DATA infor;
+	INPUT ID $ GENDER $ CLASS $;
+CARDS;
+1 M NO
+5 F NO
+2 M YES
+3 F NO
+;
+RUN;
+DATA score;
+	INPUT ID $ DEPT $ MID FINAL;
+CARDS;
+1 ENGL 30 50
+2 STAT 55 70
+3 ECON 62 90
+5 STAT 48 87
+;
+RUN;
+
+PROC SORT DATA = infor;
+	BY ID;
+RUN;
+PROC SORT DATA = score;
+	BY ID;
+RUN;
+
+DATA combined;
+	MERGE infor score;
+	BY ID;
+RUN;
+PROC PRINT;
+RUN;
+
+
+/*연습문제 6.3*/
+
+
+
+/*연습문제 6.4*/
+DATA chicken;
+	DO variety='A', 'B', 'C'; /*문자열 사이에 쉼표로 구분해줘야 함*/
+		DO SARYO=1 TO 4 BY 1;/* SARYO=1 BY 1 UNTIL(SARYO=4)*/		/*SARYO=1 BY 1 WHILE(SARYO<=4)*/
+			INPUT weight @@;
+			OUTPUT;
+		END;
+	END;
+CARDS;
+55 61 169 42
+49 112 137 97
+42 30 169 81
+;
+RUN;
+PROC PRINT;
+RUN;
