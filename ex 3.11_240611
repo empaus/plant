@@ -1,0 +1,14 @@
+TITLE '---DATA SET htwt---';
+FOOTNOTE;
+
+TITLE2 '***** 연령 > 20 *****';
+PROC MEANS DATA = htwt MEAN STD;
+	WHERE age>20;
+	CLASS sex;
+	VAR height weight;
+RUN;
+
+TITLE2 '***** Dept : Stat or Math *****';
+PROC PRINT DATA = htwt;
+	WHERE dept CONTAINS 'at';
+RUN;
